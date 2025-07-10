@@ -23,6 +23,7 @@ Follow instructions on creating the personal access token and logging into it on
 Setting up SSH for GitHub allows you to securely connect and authenticate to GitHub without needing to repeatedly enter your username and personal access token. It simplifies access to repositories and enables you to perform actions like cloning, pushing, and pulling code. (https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)
 
 
+
 ## Setup your environment
 
 Create an empty directory with a descriptive name relating to the set of WES and RNA-seq fastq files you wish to process (e.g. `hcc1395_immuno`). This will be your analysis directory. Navigate to that directory.
@@ -82,14 +83,37 @@ Create a yaml file for EACH sample you are processing using templates from the f
 
 Name each yaml as `sample_immuno.yaml` 
 
+### Set up job groups
+
+Setting up job groups is not mandatory, but it is a good practice when you are running many jobs for different projects. It can be useful when you want to check the jobs status for certain project or kill all jobs for that project. 
+Note that if you do not supply a job group with the `bsub -g` argument, a default job group named `/${compute_username}/default` will be created with a low default running job limit will be set.
+For running the immuno pipeline, it is recommended to set two job groups:
+1) `/${compute_username}/2_job` -- This group will have a max job limit of 2 jobs. This ensures that if you submit multiple samples at a time, only two samples will run in parallel simultaneously. This prevents overwhelming the server as the immuno pipeline is resource intensive.
+2) `/${compute_username}/${project_name}` -- This group will have a max job limit of >80 (as much as you like). This group is for jobs running WITHIN each sample (e.g. alignment, variant calling, etc.). We want this group to have higher job limits since the pipeline will run several jobs simultaneously for each sample.
+
+To create job groups, follow the code below: 
+
+```bash
+# to check existing job groups
+bjgroup | grep /${compute_username}
+
+# to add a job group that can run a maximum of 2 jobs:
+bgadd -L 2 /${compute_username}/2_job
+
+# to add a job group that can run a maximum of 80 jobs:
+bgadd -L 80 /${compute_username}/${project_name}
+
+# to modify job limit to 5 jobs of an existing group:
+bgmod -L 5 /${compute_username}/${group_name}
+```
+
 ### Make user-specific changes
 
 Navigate and edit this file: `cloud-workflows/manual-workflows/cromwell.config.wdl`.
 
-Find the following lines and replace the path to your own LSF job group:
+Find the following lines (there are TWO of these in the file) and replace the path to your own LSF job group that can run many jobs at a time (e.g. the `/${compute_username}/${project_name}` you previously created):
 
 ```bash
-	# Replace the path below with your own LSF job group 
   -g /path/to/your/job_group \
 ```
 
@@ -131,4 +155,10 @@ Within your analysis directory, navigate to `cloud-workflows/manual-workflows`.
 
 Double-check that the parameters defined in `run_immuno_compute1.sh` are correct (file paths, cromwell jar, clean scratch directory settings etc.)
 
-`bash run_immuno_compute1.sh "your_sample_ID" "path_to_your_scratch_directory" "your_job_group_name"`
+Note: for `your_job_group_name` in this command below, it is the job group that will run a maximum of 2 jobs (i.e. `/${compute_username}/2_job`)
+
+```bash
+bash run_immuno_compute1.sh "your_sample_ID" "path_to_your_scratch_directory" "your_job_group_name"
+
+# example: bash run_immuno_compute1.sh "Hu_254" "/scratch1/fs1/mgriffit/jyao/miller_immuno/" "/j.x.yao/2_job"
+```
