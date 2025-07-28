@@ -32,9 +32,9 @@ Setting up SSH for GitHub allows you to securely connect and authenticate to Git
 Create an empty directory with a descriptive name relating to the set of WES and RNA-seq fastq files you wish to process (e.g. `hcc1395_immuno`). This will be your analysis directory. Navigate to that directory.
 
 ### Clone git repos
-From within your analysis directory, run the following line of code: 
+From within your analysis directory, clone two repositories: 
 
-`cloud workflows`- use immuno_local_copy_outputs_jennie branch for now
+1. `cloud workflows`- use immuno_local_copy_outputs_jennie branch for now
 
 ```bash
 git clone https://github.com/wustl-oncology/cloud-workflows.git
@@ -43,16 +43,17 @@ git checkout immuno_local_copy_outputs_jennie # this switches to the correct bra
 cd ..
 ```
 
-`analysis wdls`- use git checkout v1.2.2
+2. `analysis wdls`
 
 ```bash
 git clone https://github.com/wustl-oncology/analysis-wdls.git
 cd analysis-wdls
-git checkout v1.2.2
+git checkout v1.3.0 # will use pvactools v5.3.0
 cd ..
 ```
 
-This will download the workflow and analysis files from GitHub into folders called `cloud-workflows` and `analysis-wdls` 
+This will download the workflow and analysis files from GitHub into folders called `cloud-workflows` and `analysis-wdls`. (Note: the git tags/version for these repos may be upadated from time to time, to make sure you have the most up to dated versions, check if these align with those [here](https://github.com/wustl-oncology/immuno_gcp_wdl_compute1?tab=readme-ov-file#clone-git-repositories-that-have-the-workflows-pipelines-and-scripts-to-help-run-them).
+
 
 ### Check strandedness of tumor RNA data
 
@@ -83,7 +84,7 @@ The yaml files contain exact paths to each samples' raw data.
 
 Create a folder called `yamls` under the analysis directory. 
 
-Create a yaml file for EACH sample you are processing using templates from the following link: [https://github.com/wustl-oncology/immuno_gcp_wdl_compute1/tree/main/example_yamls/human_GRCh38_ens105](https://github.com/wustl-oncology/analysis-wdls/blob/main/example_data/immuno_storage1.yml)
+Create a yaml file for EACH sample you are processing using templates [here](https://github.com/wustl-oncology/analysis-wdls/blob/main/example_data/immuno_storage1.yml)
 
 Name each yaml as `sample_immuno.yaml` 
 
@@ -134,7 +135,7 @@ Find the following lines (there are TWO of these in the file) and replace the pa
 ```
 
 ### Directory setup
-The setup of your directory should look something like this (the pipeline does not assume strict structure for the `raw_data`, as long as all paths are correct in the yaml files): 
+The script to launch the pipeline `run_immuno_compute1.sh` depends strongly on the structure of the following directory setup (except for `raw data`, paths to your raw data is set in the `yamls`). The setup of your directory should look something like this: 
 ```
 hcc1395_immuno_analysis_directory/
 │
@@ -143,7 +144,7 @@ hcc1395_immuno_analysis_directory/
 │       └── run_immuno_compute1.sh
 │       └── runCromwellWDL.sh
 │       └── cromwell.config.wdl
-│       └── stranded.sh
+│   └── ...
 ├── analysis-wdls/
 ├── yamls/
 │   ├── sample1_immuno.yaml
@@ -174,9 +175,10 @@ Double-check that the parameters defined in `run_immuno_compute1.sh` are correct
 Note: for `your_job_group_name` in this command below, it is the job group that will run a maximum of 2 jobs (i.e. `/${compute_username}/2_job`)
 
 ```bash
-bash run_immuno_compute1.sh "your_sample_ID" "path_to_your_scratch_directory" "your_job_group_name"
-# example: bash run_immuno_compute1.sh "Hu_333" "/scratch1/fs1/mgriffit/jyao/miller_immuno/" "/j.x.yao/2_job"
+bash run_immuno_compute1.sh --sample "your_sample_ID" --scratch_dir "path_to_your_scratch_directory" --job_group "your_job_group_name"
+# Example usage: bash run_immuno_compute1.sh --sample "Hu_254" --scratch_dir "/scratch1/fs1/mgriffit/jyao/miller_immuno/" --job_group "/j.x.yao/2_job"
+# Example usage to submit multiple samples: bash run_immuno_compute1.sh --sample "Hu_344 Hu_048" --scratch_dir "/scratch1/fs1/mgriffit/jyao/miller_immuno/" --job_group "/j.x.yao/2_job"
 
-# To submit two samples at a time
-# example: bash run_immuno_compute1.sh "Hu_333 Hu_343" "/scratch1/fs1/mgriffit/jyao/miller_immuno/" "/j.x.yao/2_job"
+# for more information on this run cammand, use the following:
+bash run_immuno_compute1.sh --help
 ```
