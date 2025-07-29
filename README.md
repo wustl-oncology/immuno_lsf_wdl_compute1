@@ -1,16 +1,19 @@
 # User Guide (immuno_lsf_wdl_compute1)
 A tutorial for running immuno.wdl using LSF on WASHU compute1
 
-## Before you start
+## 1. Before you start
 ### Get access to the WUSTL Oncology Enterprise
 
 Before starting, make sure you are able to pull the [`ghcr.io`](http://ghcr.io) docker image using an interactive session: 
 
 ```bash
 LSF_DOCKER_PRESERVE_ENVIRONMENT=false bsub -q oncology-interactive -G compute-oncology -n 1 -M 60G -R 'select[mem>60G] span[hosts=1] rusage[mem=60G]' -Is -a 'docker(ghcr.io/genome/genome_perl_environment:compute1-58)' /bin/bash
+
+# if the above worked, exit the interactive session
+exit
 ```
 
-If not, you need to ask to be added into the WUSTL Oncology enterprise (ask in channel general (tom mooney, chris miller, and our PIs have the ability to add people to enterprise). 
+If not, you need to ask to be added into the WUSTL Oncology enterprise (ask in channel general (Tom Mooney, Chris Miller, and our PIs have the ability to add people to the enterprise). 
 
 More details on that here:
 
@@ -24,14 +27,14 @@ Setting up SSH for GitHub allows you to securely connect and authenticate to Git
 
 
 
-## Setup your environment
+## 2. Setup your environment
 
 Create an empty directory with a descriptive name relating to the set of WES and RNA-seq fastq files you wish to process (e.g. `hcc1395_immuno`). This will be your analysis directory. Navigate to that directory.
 
 ### Clone git repos
-From within your analysis directory, run the following line of code: 
+From within your analysis directory, clone two repositories: 
 
-`cloud workflows`- use immuno_local_copy_outputs_jennie branch for now
+1. `cloud workflows`- use immuno_local_copy_outputs_jennie branch for now
 
 ```bash
 git clone https://github.com/wustl-oncology/cloud-workflows.git
@@ -40,37 +43,39 @@ git checkout immuno_local_copy_outputs_jennie # this switches to the correct bra
 cd ..
 ```
 
-`analysis wdls`- use git checkout v1.2.2
+2. `analysis wdls`
 
 ```bash
 git clone https://github.com/wustl-oncology/analysis-wdls.git
 cd analysis-wdls
-git checkout v1.2.2
+git checkout v1.3.0 # will use pvactools v5.3.0
+cd ..
 ```
 
-This will download the workflow and analysis files from GitHub into folders called `cloud-workflows` and `analysis-wdls` 
+This will download the workflow and analysis files from GitHub into folders called `cloud-workflows` and `analysis-wdls`. (Note: the git tags/version for these repos may be upadated from time to time, to make sure you have the most up to dated versions, check if these align with those [here](https://github.com/wustl-oncology/immuno_gcp_wdl_compute1?tab=readme-ov-file#clone-git-repositories-that-have-the-workflows-pipelines-and-scripts-to-help-run-them).
+
 
 ### Check strandedness of tumor RNA data
 
 If using RNA data in the immuno pipeline, it is required to know the strandedness of your samples. When you are unsure of the strandedness, follow the steps below to check the strandedness (if already know, skip this step). This information will be used for creating your yaml files in the next step. 
 
 ```bash
-# Assuming you are now in your analysis directory and have cloned cloud-workflows and analysis-wdls git repos
-cd cloud-workflows/manual-workflows
+# Navigate to your analysis directory if you are not already in there
+cd $ANALYSIS_DIRECTORY
 
-# Open and edit stranded.sh with your desired editor (e.g. vim)
-# Change the following paths to your RNA read1 file and read2 files: 
---reads_1 path_to_rna_read_1.fastq \
---reads_2 path_to_rna_read_2.fastq -n 100000 > ../../trimmed_read_strandness_check.txt
+# Enter an interactive session
+bsub -q general-interactive -G compute-mgriffit -n 1 -M 32G -R 'select[mem>32G] span[hosts=1] rusage[mem=32G]' -Is -a 'docker(mgibio/checkstrandedness:v1)' /bin/bash
 
-# Run this script
-bash stranded.sh
-
-# This script will create a file in your working directory: trimmed_read_strandness_check.txt
-# The last line of the file will indicate strandedness 
-# Put this information later in your yaml file under "immuno.strand"
+# Run the following command to check the starndedness of your RNA sample:
+check_strandedness --print_commands \
+	--gtf /storage1/fs1/mgriffit/Active/griffithlab/common/reference_files/human_GRCh38_ens105/rna_seq_annotation/Homo_sapiens.GRCh38.105.gtf \
+	--kallisto_index /storage1/fs1/mgriffit/Active/griffithlab/common/reference_files/human_GRCh38_ens105/rna_seq_annotation/Homo_sapiens.GRCh38.cdna.all.fa.kallisto.idx \
+	--reads_1 path_to_your_Read1_RNA_DATA/R1.fastq.gz \
+	--reads_2 path_to_your_Read2_RNA_DATA/R2.fastq.gz -n 100000 > ./read_strandness_check.txt
 ```
-
+This script will create a file in your analysis directory: read_strandness_check.txt
+The last line of the file will indicate strandedness 
+Put this information later in the RNA section of your yaml file under "immuno.strand"
  
 
 ### yamls
@@ -79,9 +84,21 @@ The yaml files contain exact paths to each samples' raw data.
 
 Create a folder called `yamls` under the analysis directory. 
 
-Create a yaml file for EACH sample you are processing using templates from the following link: https://github.com/wustl-oncology/immuno_gcp_wdl_compute1/tree/main/example_yamls/human_GRCh38_ens105
+Create a yaml file for EACH sample you are processing using templates [here](https://github.com/wustl-oncology/analysis-wdls/blob/main/example_data/immuno_storage1.yml)
 
 Name each yaml as `sample_immuno.yaml` 
+
+#### Check YAML for common errors
+Use validate_immuno_yaml.py to check for common errors that come up during creation of the immuno YAML such as syntax errors, mismatched sample names, missing values, etc.
+```bash
+cd $WORKING_BASE/yamls
+bsub -Is -q oncology-interactive -G $GROUP -a "docker(mgibio/cloudize-workflow:latest)" /bin/bash
+
+python3 /opt/scripts/validate_immuno_yaml.py $LOCAL_YAML
+
+exit
+```
+
 
 ### Set up job groups
 
@@ -114,11 +131,11 @@ Navigate and edit this file: `cloud-workflows/manual-workflows/cromwell.config.w
 Find the following lines (there are TWO of these in the file) and replace the path to your own LSF job group that can run many jobs at a time (e.g. the `/${compute_username}/${project_name}` you previously created):
 
 ```bash
-  -g /path/to/your/job_group \
+  -g /path/to/your/job_group \ # <- change this to /${compute_username}/${project_name} job group you made in the previous step
 ```
 
 ### Directory setup
-The setup of your directory should look something like this (the pipeline does not assume strict structure for the `raw_data`, as long as all paths are correct in the yaml files): 
+The script to launch the pipeline `run_immuno_compute1.sh` depends strongly on the structure of the following directory setup (except for `raw data`, paths to your raw data is set in the `yamls`). The setup of your directory should look something like this: 
 ```
 hcc1395_immuno_analysis_directory/
 │
@@ -127,7 +144,7 @@ hcc1395_immuno_analysis_directory/
 │       └── run_immuno_compute1.sh
 │       └── runCromwellWDL.sh
 │       └── cromwell.config.wdl
-│       └── stranded.sh
+│   └── ...
 ├── analysis-wdls/
 ├── yamls/
 │   ├── sample1_immuno.yaml
@@ -149,7 +166,7 @@ hcc1395_immuno_analysis_directory/
     └── sample3/
 ```
 
-## Submit job to run the immuno workflow
+## 3. Submit job to run the immuno workflow
 
 Within your analysis directory, navigate to `cloud-workflows/manual-workflows`.
 
@@ -158,7 +175,10 @@ Double-check that the parameters defined in `run_immuno_compute1.sh` are correct
 Note: for `your_job_group_name` in this command below, it is the job group that will run a maximum of 2 jobs (i.e. `/${compute_username}/2_job`)
 
 ```bash
-bash run_immuno_compute1.sh "your_sample_ID" "path_to_your_scratch_directory" "your_job_group_name"
+bash run_immuno_compute1.sh --sample "your_sample_ID" --scratch_dir "path_to_your_scratch_directory" --job_group "your_job_group_name"
+# Example usage: bash run_immuno_compute1.sh --sample "Hu_254" --scratch_dir "/scratch1/fs1/mgriffit/jyao/miller_immuno/" --job_group "/j.x.yao/2_job"
+# Example usage to submit multiple samples: bash run_immuno_compute1.sh --sample "Hu_344 Hu_048" --scratch_dir "/scratch1/fs1/mgriffit/jyao/miller_immuno/" --job_group "/j.x.yao/2_job"
 
-# example: bash run_immuno_compute1.sh "Hu_254" "/scratch1/fs1/mgriffit/jyao/miller_immuno/" "/j.x.yao/2_job"
+# for more information on this run cammand, use the following:
+bash run_immuno_compute1.sh --help
 ```
