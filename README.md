@@ -29,7 +29,7 @@ Setting up SSH for GitHub allows you to securely connect and authenticate to Git
 
 ## 2. Setup your environment
 
-Create an empty directory with a descriptive name relating to the set of WES and RNA-seq fastq files you wish to process (e.g. `hcc1395_immuno`). This will be your analysis directory. Navigate to that directory.
+Create an empty directory with a descriptive name relating to the set of WES and RNA-seq fastq files you wish to process (e.g. `hcc1395_immuno`). This will be your analysis/working directory. Navigate to that directory.
 
 ### Clone git repos
 From within your analysis directory, clone two repositories: 
@@ -126,13 +126,25 @@ bgmod -L 5 /${compute_username}/${group_name}
 
 ### Make user-specific changes
 
-Navigate and edit this file: `cloud-workflows/manual-workflows/cromwell.config.wdl`.
+1. Change job group in the config file  
 
-Find the following lines (there are TWO of these in the file) and replace the path to your own LSF job group that can run many jobs at a time (e.g. the `/${compute_username}/${project_name}` you previously created):
+   Navigate and edit this file: `cloud-workflows/manual-workflows/cromwell.config.wdl`.
 
-```bash
-  -g /path/to/your/job_group \ # <- change this to /${compute_username}/${project_name} job group you made in the previous step
-```
+   Find the following lines (there are TWO of these in the file) and replace the path to your own LSF job group that can run many jobs at a time (e.g. the `/${compute_username}/${project_name}` you previously created):
+
+   ```bash
+   -g /path/to/your/job_group \ # <- change this to /${compute_username}/${project_name} job group you made in the previous step
+   ```
+
+3. Clean scratch dirctory after pipeline run
+
+   The immuno pipeline write numerous temperary files while running, and these files take up a lot of space in the scratch directory. When testing the pipeline for the first time we recommend keeping all temperary files in the scratch directory. After testing, it is recommended to change the following in the `run_immuno_compute1.sh` file to erase temperary files from the scratch directory:
+   ```
+   # change all instances of
+   --clean NO
+   # to
+   --clean YES
+   ```
 
 ### Directory setup
 The script to launch the pipeline `run_immuno_compute1.sh` depends strongly on the structure of the following directory setup (except for `raw data`, paths to your raw data is set in the `yamls`). The setup of your directory should look something like this: 
@@ -172,10 +184,15 @@ Within your analysis directory, navigate to `cloud-workflows/manual-workflows`.
 
 Double-check that the parameters defined in `run_immuno_compute1.sh` are correct (file paths, cromwell jar, clean scratch directory settings etc.)
 
-Note: for `your_job_group_name` in this command below, it is the job group that will run a maximum of 2 jobs (i.e. `/${compute_username}/2_job`)
+You will need to input 4 arguments to run the command: 
+1) `--sample` - sample name in the format of "Hu_254" for a single sample or "Hu_344 Hu_048" for multiple samples.
+2) `--work_dir` - the path of your analysis/working directory (e.g. `hcc1395_immuno_analysis_directory` in the example above)
+3) `--scratch_dir` - the path of your scratch directory
+4) `--job_group` - the job group that will run a maximum of 2 jobs (i.e. `/${compute_username}/2_job`)
 
+Example command: 
 ```bash
-bash run_immuno_compute1.sh --sample "your_sample_ID" --scratch_dir "path_to_your_scratch_directory" --job_group "your_job_group_name"
+bash run_immuno_compute1.sh --sample "Hu_254" --work_dir "/storage1/fs1/mgriffit/Active/immune/j.yao/Miller/immuno" --scratch_dir "/scratch1/fs1/mgriffit/jyao/miller_immuno" --job_group "/j.x.yao/2_job"
 # Example usage: bash run_immuno_compute1.sh --sample "Hu_254" --scratch_dir "/scratch1/fs1/mgriffit/jyao/miller_immuno/" --job_group "/j.x.yao/2_job"
 # Example usage to submit multiple samples: bash run_immuno_compute1.sh --sample "Hu_344 Hu_048" --scratch_dir "/scratch1/fs1/mgriffit/jyao/miller_immuno/" --job_group "/j.x.yao/2_job"
 
