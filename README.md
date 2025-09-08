@@ -29,10 +29,10 @@ Setting up SSH for GitHub allows you to securely connect and authenticate to Git
 
 ## 2. Setup your environment
 
-Create an empty directory with a descriptive name relating to the set of WES and RNA-seq fastq files you wish to process (e.g. `hcc1395_immuno`). This will be your analysis/working directory. Navigate to that directory.
+Create an empty directory with a descriptive name relating to the set of WES and RNA-seq fastq files you wish to process (e.g. `hcc1395_immuno`). This will be your working directory. Navigate to that directory.
 
 ### Clone git repos
-From within your analysis directory, clone two repositories: 
+From within your working directory, clone two repositories: 
 
 1. `cloud workflows`- use immuno_local_copy_outputs_jennie branch for now
 
@@ -60,8 +60,8 @@ This will download the workflow and analysis files from GitHub into folders call
 If using RNA data in the immuno pipeline, it is required to know the strandedness of your samples. When you are unsure of the strandedness, follow the steps below to check the strandedness (if already know, skip this step). This information will be used for creating your yaml files in the next step. 
 
 ```bash
-# Navigate to your analysis directory if you are not already in there
-cd $ANALYSIS_DIRECTORY
+# Navigate to your working directory if you are not already in there
+cd $WORKING_DIRECTORY
 
 # Enter an interactive session
 bsub -q general-interactive -G compute-mgriffit -n 1 -M 32G -R 'select[mem>32G] span[hosts=1] rusage[mem=32G]' -Is -a 'docker(mgibio/checkstrandedness:v1)' /bin/bash
@@ -73,23 +73,25 @@ check_strandedness --print_commands \
 	--reads_1 path_to_your_Read1_RNA_DATA/R1.fastq.gz \
 	--reads_2 path_to_your_Read2_RNA_DATA/R2.fastq.gz -n 100000 > ./read_strandness_check.txt
 ```
-This script will create a file in your analysis directory: read_strandness_check.txt
-The last line of the file will indicate strandedness 
-Put this information later in the RNA section of your yaml file under "immuno.strand"
+This script will create a file in your working directory: `read_strandness_check.txt`. 
+
+The last line of the file will indicate strandedness.  
+
+Put this information later in the RNA section of your yaml file under `immuno.strand`.  
  
 
 ### yamls
 
-The yaml files contain exact paths to each samples' raw data. 
+The yaml files contain exact paths to each samples' raw data (i.e. it tells the pipeline where to find your raw data). 
 
-Create a folder called `yamls` under the analysis directory. 
+Create a folder called `yamls` under the working directory. 
 
-Create a yaml file for EACH sample you are processing using templates [here](https://github.com/wustl-oncology/analysis-wdls/blob/main/example_data/immuno_storage1.yml)
+Create a yaml file for **EACH** sample you are processing using templates found [here](https://github.com/wustl-oncology/analysis-wdls/blob/main/example_data/immuno_storage1.yml)
 
-Name each yaml as `sample_immuno.yaml` 
+Name each yaml as `sample_immuno.yaml` (e.g. sample1_immuno.yaml)
 
 #### Check YAML for common errors
-Use validate_immuno_yaml.py to check for common errors that come up during creation of the immuno YAML such as syntax errors, mismatched sample names, missing values, etc.
+Use `validate_immuno_yaml.py` to check for common errors that come up during creation of the immuno YAML such as syntax errors, mismatched sample names, missing values, etc.
 ```bash
 cd $WORKING_BASE/yamls
 bsub -Is -q oncology-interactive -G $GROUP -a "docker(mgibio/cloudize-workflow:latest)" /bin/bash
@@ -103,12 +105,14 @@ exit
 ### Set up job groups
 
 Setting up job groups is not mandatory, but it is a good practice when you are running many jobs for different projects. It can be useful when you want to check the jobs status for certain project or kill all jobs for that project. 
-Note that if you do not supply a job group with the `bsub -g` argument, a default job group named `/${compute_username}/default` will be created with a low default running job limit will be set.
+
+Note: if you do not supply a job group with the `bsub -g` argument, a default job group named `/${compute_username}/default` will be created and it has a low default running job limit. This may slow the pipeline down. 
+
 For running the immuno pipeline, it is recommended to set two job groups:
-1) `/${compute_username}/2_job` -- This group will have a max job limit of 2 jobs. This ensures that if you submit multiple samples at a time, only two samples will run in parallel simultaneously. This prevents overwhelming the server as the immuno pipeline is resource intensive.
+1) `/${compute_username}/2_job` -- This group will have a max job limit of 2 jobs. This ensures that if you submit multiple samples at a time, only two samples will run in parallel simultaneously. This prevents overwhelming the server as the immuno pipeline is resource-intensive.
 2) `/${compute_username}/${project_name}` -- This group will have a max job limit of >80 (as much as you like). This group is for jobs running WITHIN each sample (e.g. alignment, variant calling, etc.). We want this group to have higher job limits since the pipeline will run several jobs simultaneously for each sample.
 
-To create job groups, follow the code below: 
+To create/modify your job groups, follow the code below: 
 
 ```bash
 # to check existing job groups
@@ -138,18 +142,18 @@ bgmod -L 5 /${compute_username}/${group_name}
 
 3. Clean scratch dirctory after pipeline run
 
-   The immuno pipeline write numerous temperary files while running, and these files take up a lot of space in the scratch directory. When testing the pipeline for the first time we recommend keeping all temperary files in the scratch directory. After testing, it is recommended to change the following in the `run_immuno_compute1.sh` file to erase temperary files from the scratch directory:
+   The immuno pipeline writes a lot of temperary files while running, and these files take up a lot of space in the scratch directory. When testing the pipeline for the first time we recommend keeping all temperary files in the scratch directory. After testing, it is recommended to change the following in the `cloud-workflows/manual-workflows/run_immuno_compute1.sh` file to erase temperary files from the scratch directory:
    ```
-   # change all instances of
+   # To keep all temperary files in the scratch directory, change ALL instances of
    --clean NO
    # to
    --clean YES
    ```
 
 ### Directory setup
-The script to launch the pipeline `run_immuno_compute1.sh` depends strongly on the structure of the following directory setup (except for `raw data`, paths to your raw data is set in the `yamls`). The setup of your directory should look something like this: 
+The script to launch the pipeline `cloud-workflows/manual-workflows/run_immuno_compute1.sh` depends strongly on the structure of the following directory setup (except for `raw data`, paths to your raw data is specified in the `yamls`). The setup of your directory should look something like this: 
 ```
-hcc1395_immuno_analysis_directory/
+hcc1395_immuno_working_directory/
 │
 ├── cloud-workflows/
 │   ├── manual-workflows/
@@ -178,11 +182,11 @@ hcc1395_immuno_analysis_directory/
     └── sample3/
 ```
 
-## 3. Submit job to run the immuno workflow
+## 3. Launch the immuno workflow
 
-Within your analysis directory, navigate to `cloud-workflows/manual-workflows`.
+Within your working directory, navigate to `cloud-workflows/manual-workflows`.
 
-Double-check that the parameters defined in `run_immuno_compute1.sh` are correct (file paths, cromwell jar, clean scratch directory settings etc.)
+Double-check that the parameters defined in `run_immuno_compute1.sh` are correct (file paths, clean scratch directory settings etc.)
 
 You will need to input 4 arguments to run the command: 
 1) `--sample` - sample name in the format of "Hu_254" for a single sample or "Hu_344 Hu_048" for multiple samples.
