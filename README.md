@@ -145,9 +145,9 @@ bgmod -L 5 /${compute_username}/${group_name}
    The immuno pipeline writes a lot of temperary files while running, and these files take up a lot of space in the scratch directory. When testing the pipeline for the first time we recommend keeping all temperary files in the scratch directory. After testing, it is recommended to change the following in the `cloud-workflows/manual-workflows/run_immuno_compute1.sh` file to erase temperary files from the scratch directory:
    ```
    # To keep all temperary files in the scratch directory, change ALL instances of
-   --clean NO
-   # to
    --clean YES
+   # to
+   --clean NO
    ```
 
 ### Directory setup
