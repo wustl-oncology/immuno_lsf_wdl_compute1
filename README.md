@@ -39,7 +39,7 @@ From within your working directory, clone two repositories: 
 ```bash
 git clone https://github.com/wustl-oncology/cloud-workflows.git
 cd cloud-workflows
-git checkout immuno_local_copy_outputs_jennie # this switches to the correct branch
+git checkout main
 cd ..
 ```
 
@@ -48,7 +48,7 @@ cd ..
 ```bash
 git clone https://github.com/wustl-oncology/analysis-wdls.git
 cd analysis-wdls
-git checkout v1.3.0 # will use pvactools v5.3.0
+git checkout v1.3.0 # will use pvactools v5.3.0 (if you want to use a different pvactools version you may need to checkout a different branch)
 cd ..
 ```
 
