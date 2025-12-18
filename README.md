@@ -39,7 +39,7 @@ From within your working directory, clone two repositories: 
 ```bash
 git clone https://github.com/wustl-oncology/cloud-workflows.git
 cd cloud-workflows
-git checkout main
+git checkout v1.5.0 # Check what is the latest tag number of this git repo
 cd ..
 ```
 
@@ -48,7 +48,7 @@ cd ..
 ```bash
 git clone https://github.com/wustl-oncology/analysis-wdls.git
 cd analysis-wdls
-git checkout v1.3.0 # will use pvactools v5.3.0 (if you want to use a different pvactools version you may need to checkout a different branch)
+git checkout v1.5.0 # Check what is the latest tag number of this git repo (usually the same as above)
 cd ..
 ```
 
@@ -149,6 +149,13 @@ bgmod -L 5 /${compute_username}/${group_name}
    # to
    --clean NO
    ```
+   
+4. Update docker image version
+   The docker image used for this pipeline gets updated when there is a new release in the `cloud-workflows` and `analysis-wdls` git repos. Make sure to update to the correct version (the tag version you used in the git repo, e.g. v1.5.0). Change all three instances below in the `cloud-workflows/manual-workflows/run_immuno_compute1.sh` file:
+   ```
+   -a 'docker(mgibio/cloudize-workflow:1.5.0)' # where 1.5.0 should be changed to the appropriate version number
+   ```
+   
 
 ### Directory setup
 The script to launch the pipeline `cloud-workflows/manual-workflows/run_immuno_compute1.sh` depends strongly on the structure of the following directory setup (except for `raw data`, paths to your raw data is specified in the `yamls`). The setup of your directory should look something like this: 
